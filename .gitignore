@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Data, checkpoints, logs — none of these are tracked
+data/downloads/
+data/bsds500/
+data/div2k/
+checkpoints/
+logs/
+results/
+*.pt
+*.pth
+events.out.tfevents.*
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
