@@ -27,11 +27,13 @@ p-Bridge indexes a diffusion bridge by two physical quantities — the **power-v
 
 ## The Noise Plane
 
-Noise is located by a point `(p, ν)` rather than a scalar level: `p` fixes the *shape* of the fluctuation and `ν` its *amount*. Because `ν` carries `p`-dependent units, runs are calibrated by a severity `η := CV(μ_ref)` instead of a shared `ν`, and a single reverse step is the same mixing rule at every exponent.
+Noise is located by a point `(p, ν)` on a plane rather than by a scalar level: the variance law `Var(X | μ) = μ^p / ν` separates how strongly the fluctuation depends on the signal (`p`) from how much measurement went into it (`ν`). Gaussian noise, Poisson shot noise, photon-counting detectors and SAR speckle are then columns of one family rather than four problems, and a single network is told where on the plane it is working instead of being retrained for each column.
 
 <div align="center">
   <img src="assets/noise_plane.png" width="900"/>
 </div>
+
+Because `ν` carries `p`-dependent units, holding it fixed across exponents is meaningless; runs are instead calibrated by a severity `η := CV(μ_ref)`, which equalises the amount of noise at a reference intensity and leaves only its shape to differ.
 
 | η | p = 1.0 | p = 1.5 | p = 2.0 |
 |:---|:---|:---|:---|
@@ -58,7 +60,7 @@ p-Bridge/
 ├── eval/                     PSNR / SSIM, per-decile, Pearson-residual diagnostics
 ├── scripts/calibrate.py      mu_ref and the severity table -> calibration.json
 ├── tests/                    pytest unit tests, run before any training
-└── assets/                   paper-figure PNGs
+└── assets/                   paper figures used by this README
 ```
 
 ---
@@ -170,7 +172,7 @@ A checkpoint trained at `p_model` is evaluated on data generated at `p_data`, bo
 ```bibtex
 @article{hu2026pbridge,
   title={The Noise Plane: One Diffusion Bridge Across Exponent and Dispersion},
-  author={Hu, Xuran and others},
+  author={Hu, Xuran and Zhu, Yujie and Wang, Tengxi and Zhao, Wufan},
   year={2026}
 }
 ```
