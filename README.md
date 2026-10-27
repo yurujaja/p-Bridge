@@ -21,8 +21,6 @@ Official implementation of *The Noise Plane: One Diffusion Bridge Across Exponen
 
 p-Bridge indexes a diffusion bridge by two physical quantities — the **power-variance exponent** `p` and the **cumulative measurement weight** `ν` — instead of an abstract noise schedule. A single family covers the Tweedie exponents `p ∈ [1, 2]`: Poisson shot noise at `p = 1`, gamma speckle at `p = 2`, compound Poisson–gamma in between. Every intermediate state is a physically valid measurement at weight `ν(t)`, the reverse posterior is `p`-independent in closed form, and the training loss is the Bregman divergence of the corresponding unit deviance, so one conditional network spans the whole axis and is told the exponent at inference rather than retrained for it.
 
-> **This repository is the minimal core** — model, simulator, training loop and cross-`p` evaluation on synthetic optical data. Real-sensor pipelines (fluorescence microscopy, SAR), baseline implementations, figure scripts and trained checkpoints are not included.
-
 ---
 
 ## The Noise Plane
@@ -80,6 +78,18 @@ Verify the simulator against the theory before training anything:
 ```bash
 python -m pytest tests/ -q
 ```
+
+---
+
+## Pretrained Model
+
+The flagship conditional checkpoint — one network spanning the whole axis — is on the Hugging Face Hub at [Teriri1999/p-Bridge](https://huggingface.co/Teriri1999/p-Bridge).
+
+```bash
+hf download Teriri1999/p-Bridge pbridge_cond_severe_50k.pt --local-dir weights
+```
+
+EMA weights at step 50,000, 15.28 M parameters, 61.2 MB, `sha256 c7f35c2a…cdf356`. Trained on BSDS500 + DIV2K for 50,000 steps at `η = 1.0` with `p` drawn from `U[1, 2]`; inference only, no optimiser state.
 
 ---
 
@@ -167,18 +177,8 @@ A checkpoint trained at `p_model` is evaluated on data generated at `p_data`, bo
 
 ---
 
-## Citation
-
-```bibtex
-@article{hu2026pbridge,
-  title={The Noise Plane: One Diffusion Bridge Across Exponent and Dispersion},
-  author={Hu, Xuran and Zhu, Yujie and Wang, Tengxi and Zhao, Wufan},
-  year={2026}
-}
-```
-
 ---
 
 ## License
 
-MIT, see [LICENSE](LICENSE). `pbridge_core/gd/` is vendored from [OpenAI guided-diffusion](https://github.com/openai/guided-diffusion) under its own MIT license, reproduced in [`pbridge_core/gd/LICENSE_GUIDED_DIFFUSION`](pbridge_core/gd/LICENSE_GUIDED_DIFFUSION). BSDS500 and DIV2K remain under their owners' terms; this repository downloads them but redistributes neither.
+MIT, see [LICENSE](LICENSE).
