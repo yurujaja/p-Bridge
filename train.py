@@ -1,23 +1,3 @@
-"""p-Bridge training loop — one exponent per run (E0 specialists).
-
-Objective (§9):
-    L = lambda_rec * L_rec + lambda_mom * L_mom + lambda_cons * L_cons
-
-    L_rec  = E[ nu(t)  * B_psi(x0, x0_hat(x_t))  ]                   Eq. (14)
-    L_mom  = mean(eps)^2 + (Var(eps) - 1)^2,  eps per Eq. (16)       Eq. (17)
-    L_cons = E[ nu(t') * B_psi(x0, x0_hat(x_t')) ],  t' advanced by
-             the deterministic reverse from a stop-gradiented x0_hat  Eq. (19)
-
-B_psi = d_p / 2 is the Bregman divergence of Lemma 22. We use it rather than the
-deviance itself purely so that the p=1 instance is numerically identical to the
-published lambda-Bridge Eq. (11) and the weights (10, 1, 5) carry over unchanged;
-Theorem 23 is indifferent to the positive factor.
-
-Severity is set by `--eta` through Eq. (22), never by hand: nu_obs carries
-p-dependent units, so holding it fixed across p would compare different amounts
-of noise and produce an uninterpretable table (§13.1).
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -76,22 +56,9 @@ def get_args():
     p.add_argument("--num_workers", type=int, default=4)
     # ---- model ----
     p.add_argument("--model_channels", type=int, default=64)
-    # (1,2,4) is the lambda-Bridge backbone shape and stays the default so every
-    # existing checkpoint keeps rebuilding identically -- eval/run_eval.py reads
-    # these back out of the checkpoint and falls back to exactly these values
-    # when a checkpoint predates them.
-    #
-    # It is also a weak shape for 256x256 input: three levels means two
-    # downsamples, so the deepest feature map is 64x64 and the network has no
-    # global mechanism at all.
     p.add_argument("--channel_mult", type=int, nargs="+", default=[1, 2, 4],
                    help="channels per resolution level, as multiples of "
                         "--model_channels; length sets the depth")
-    # UNITS TRAP: these are DOWNSAMPLE RATES, not pixel resolutions. ds starts at
-    # 1 and doubles per level, so (1,2,4) only ever reaches ds=4 and any value
-    # above that is silently ignored -- passing (32,16) to a three-level network
-    # inserts nothing and does not even change the parameter count. Attention
-    # requires depth first.
     p.add_argument("--attention_resolutions", type=int, nargs="*", default=[],
                    help="downsample rates (1,2,4,8,...) at which to insert "
                         "attention; NOT pixel resolutions")
@@ -116,35 +83,11 @@ def get_args():
                    help="E2: do NOT divide the deviance by mu_ref^(2-p). Only for "
                         "an ablation — without it p=2 gets 2.03x the gradient "
                         "weight of p=1 and the generalist tilts towards p=2.")
-    # The three parameterisation knobs added 2026-09-17. Defaults reproduce every
-    # earlier run exactly; the measurement that motivates them is that our own
-    # NFE=1 score loses 0.513 dB to NAFNet while the chain then buys back 0.279,
-    # so the deficit is in what the network learns, not in the sampler -- and
-    # I2SB, on this same backbone, beats us by 0.30-0.40 at NFE=1 with a
-    # residual parameterisation and a flat loss weight.
     p.add_argument("--head", choices=["exp", "residual", "logres"], default="exp",
                    help="'residual' predicts the Eq. (16) Pearson residual and "
                         "inverts it for x0_hat; 'logres' is gamma-Bridge's "
                         "multiplicative anchor x_t * exp(G), sound only at p=2 "
                         "(Remark 33); see predict_x0")
-    # Measured 2026-09-17: under uniform t and the uncapped weighting, the
-    # noisiest ten steps -- including t=T-1, the state a single forward pass is
-    # scored at -- carry 0.01% of the total reconstruction signal, while the
-    # cleanest ten carry 60.6%. Our NFE=1 deficit to NAFNet is 0.513 dB and this
-    # is the most likely reason for it: the network is barely trained on the
-    # state it is evaluated at.
-    #
-    # alpha compresses the dynamic range WITHOUT moving the loss magnitude:
-    # w = norm * (nu/nu_scale)**alpha, with norm chosen so the mean weight over
-    # the schedule is what alpha=1 would give. alpha=1 is therefore the identity
-    # and stays the default; alpha=0 is flat. The point of the normalisation is
-    # that --nu_weight_cap 1.0 collapses the rec term by orders of magnitude and
-    # so silently re-balances it against lambda_mom and lambda_cons, which were
-    # tuned at 10/1/5 under the old weighting. alpha leaves that balance alone.
-    #
-    # Nothing in the theory is at stake. Eq. (14)'s weighting decides how much
-    # each t is optimised; it does not change the per-t minimiser, which is the
-    # posterior mean for every weighting (Thm 23 holds pointwise in t).
     p.add_argument("--nu_weight_alpha", type=float, default=1.0,
                    help="exponent on the deviance weight (nu/nu_obs)**alpha, "
                         "renormalised to preserve the mean. 1 = unchanged, 0 = flat")
@@ -174,17 +117,6 @@ def get_args():
                    help="ablation: synthesise nu' * x0_hat in the consistency loss")
     # ---- optimisation ----
     p.add_argument("--lr_G", type=float, default=1e-4)
-    # Every cell up to and including the 50k round trained at a constant lr, so
-    # `constant` stays the default and leaves those runs bit-reproducible. It is
-    # also the suspect: the 30k->50k extension improved each cell near its own
-    # exponent and went backwards at p_data=2 (-0.156 dB moderate, -0.071 mild,
-    # paired, seed spread <0.015), which is what a run that is bouncing in a
-    # basin rather than settling into one looks like.
-    #
-    # RESUME TRAP. global_step restarts at 0 on --resume, so a cosine schedule
-    # resumed part-way restarts from the peak rather than continuing down. Use
-    # cosine on runs trained from scratch, or pass --total_steps equal to the
-    # remaining steps and accept that it is a fresh decay.
     p.add_argument("--lr_schedule", choices=["constant", "cosine"], default="constant",
                    help="cosine decays lr_G -> lr_min over total_steps after warmup")
     p.add_argument("--lr_min", type=float, default=1e-7,

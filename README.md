@@ -11,15 +11,15 @@
 
 <br/>
 
-<img src="assets/overview.png" width="860"/>
+
 
 </div>
 
 <br/>
 
-Official implementation of *The Noise Plane: One Diffusion Bridge Across Exponent and Dispersion*.
+Official implementation of *The Noise Plane: A Diffusion Bridge Across Exponent and Dispersion*.
 
-p-Bridge indexes a diffusion bridge by two physical quantities — the **power-variance exponent** `p` and the **cumulative measurement weight** `ν` — instead of an abstract noise schedule. A single family covers the Tweedie exponents `p ∈ [1, 2]`: Poisson shot noise at `p = 1`, gamma speckle at `p = 2`, compound Poisson–gamma in between. Every intermediate state is a physically valid measurement at weight `ν(t)`, the reverse posterior is `p`-independent in closed form, and the training loss is the Bregman divergence of the corresponding unit deviance, so one conditional network spans the whole axis and is told the exponent at inference rather than retrained for it.
+p-Bridge indexes a diffusion bridge by two physical quantities: the **power-variance exponent** `p` and the **cumulative measurement weight** `ν`. A single family covers the Tweedie exponents `p ∈ [1, 2]`: Poisson shot noise at `p = 1`, gamma speckle at `p = 2`, compound Poisson–gamma in between. Every intermediate state is a physically valid measurement at weight `ν(t)`, the reverse posterior is `p`-independent in closed form, and the training loss is the Bregman divergence of the corresponding unit deviance, so one conditional network spans the whole axis and is told the exponent at inference rather than retrained for it.
 
 ---
 
@@ -114,8 +114,6 @@ python -m scripts.calibrate --extra_roots data/div2k/DIV2K_train_HR
 
 ## Training
 
-The paper's flagship is the conditional model: one checkpoint spanning the whole axis, with `p` drawn per micro-batch from `U[1, 2]` on a 0.05 grid and fed to the network alongside `log ν`.
-
 ```bash
 torchrun --nproc_per_node=4 train.py \
     --p 1.5 --p_range 1.0 2.0 --p_quantum 0.05 \
@@ -131,10 +129,6 @@ torchrun --nproc_per_node=4 train.py \
     --seed 0 --out_dir checkpoints/cond_severe
 ```
 
-> `--nu_weight_alpha 0.0` is **not** the argparse default (`1.0` is). Uncapped, the deviance weight spans `[1, 10⁴]` and starves the noisy end of the schedule — the very state a one-step evaluation is scored at. Training without this flag does not give the reported model.
-
-A fixed-exponent specialist is the same command with `--p <value>` and no `--p_range`. Severity is severe-only by measurement: one severe-trained checkpoint covers the whole noise range, so milder cells are obtained by entering the same bridge part-way along rather than by training.
-
 | Flag | Meaning |
 |:---|:---|
 | `--p`, `--eta` | exponent and severity; `ν_obs`, `ν_max` follow from the calibration |
@@ -146,8 +140,6 @@ A fixed-exponent specialist is the same command with `--p <value>` and no `--p_r
 | `--head` | `exp` (default), `residual`, or `logres` anchored head |
 | `--naive_posterior`, `--direct_pred` | ablations: synthesised consistency target, ReLU head |
 
-Keep `micro × accum × ngpu = 24`; the conditional run additionally needs `ngpu × accum ≥ 8` `p`-draws per optimiser step.
-
 ---
 
 ## Evaluation
@@ -158,10 +150,6 @@ python -m eval.run_eval \
     --nfe 1 5 25 --eval_p 1.0 1.5 2.0 \
     --out_json results/eval.json
 ```
-
-Reports PSNR and SSIM overall and per intensity decile, plus Pearson-residual mean/variance, ratio mean and zero fraction. Results are quoted at **NFE = 5** throughout; NFE is not monotone, so the evaluator prints the whole sweep rather than one point.
-
-A checkpoint trained at `p_model` is evaluated on data generated at `p_data`, both handed to the network in the intensity domain `x = Z/ν` at equal `CV(μ_ref)`. The two therefore differ only in the *shape* of the noise, never in its amount, which isolates the cost of getting the exponent wrong: overestimating it is paid in the dark deciles and underestimating it in the bright ones, while inside the `|p̂ − p| ≤ 0.25` band the estimator actually achieves the excess error stays in single digits.
 
 <div align="center">
   <img src="assets/mismatch.png" width="620"/>
